@@ -1,0 +1,24 @@
+{
+  "name": "nodejs-consume-data",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "PORT=4000 node server.js",
+    "start:order": "PORT=8000 node order-service.js",
+    "start:user": "PORT=9000 node user-service.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/hapi": "^21.4.0",
+    "got": "^11.8.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "eslint": "^9.32.0",
+    "eslint-config-dicodingacademy": "^0.9.5",
+    "globals": "^16.3.0"
+  }
+}
