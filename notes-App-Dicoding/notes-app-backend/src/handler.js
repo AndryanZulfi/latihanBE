@@ -8,7 +8,6 @@ export const addNoteHandler = async(request, h) => {
   try{
     const noteId = nanoid(16);
     const {title, tags, body} = request.payload
-    console.log(tags);
     await c.beginTransaction();
 
     const [result] = await c.query(
@@ -16,22 +15,18 @@ export const addNoteHandler = async(request, h) => {
       [noteId, title, body]
     )
 
-    console.log(result);
-    for(const [index, tagName] of tags.entries()){
-      console.log(typeof(tagName))
+    for(const tagName of tags){
       const [rows] = await c.query(
         'SELECT id FROM tags WHERE name = ?',
         [tagName]
       )
 
-      console.log(rows)
       let tagId;
       if(rows.length === 0){
         tagId = nanoid(16);
-        console.log(tagId)
         await c.query(
-          'INSERT INTO tags(id, name, position) VALUES (?,?,?)',
-          [tagId, tagName, index+1]
+          'INSERT INTO tags(id, name) VALUES (?,?)',
+          [tagId, tagName]
         )
       }else{
         tagId = rows[0].id
@@ -75,7 +70,6 @@ export const readNoteHandler = async(request, h) => {
     );
     const notes = convertToString(rows)
     await c.commit()
-    console.log(notes)
     return h.response({
       status: 'succes',
       data: {
@@ -143,56 +137,104 @@ export const editNoteByIdhandler = async(request, h) => {
 
 
     //Mengambil tags di database
-
-    const [rows] = await c.query(
-      `select nt.note_id t.id, t.name 
-      from note_tags as nt
-      join tags on nt.note_id = t.id
-      where note_id = ?`,
+    const [oldTags] = await c.query(
+      `SELECT t.id, t.name as name 
+      FROM tags AS t
+      JOIN note_tags as nt on t.id = nt.tag_id
+      where nt.note_id = ?`,
       [id]
-    );
-
-
-    //Mengambil tags baru yang belum ada di database
-
-
-
-    //Menambahkan tags baru ke database dan juga relasinya
-
-
-
-
-    //Mengambil tags di database yang tidak ada di tags baru
-
-
-
-    //Update tags sesuai id
-
-
-
-    console.log(rows)
-    rows.forEach(async(nt,index) => {
-      console.log(nt.tag_id)
-      await c.query(
-        `UPDATE tags
-        set name = ?
-        WHERE id = ?`,
-        [tags[index], nt.tag_id]
+    )
+    //Disamakan apakah length dari tags baru dan lama sama
+    //Jika sama
+    let tagId;
+    await c.query(
+      `DELETE FROM note_tags
+       WHERE note_id = ?`,
+      [id]
+    )
+    // const tagForDelete = oldTags.slice(tags.length)
+    for(const tagName of tags){
+       const [rows] = await c.query(
+        `SELECT id FROM tags WHERE name = ?`,
+        [tagName]
       )
-    })
-    // console.log(rows)
-    const [note] = await c.query(
-        `UPDATE notes
-        SET title = ?,
-            body = ?,
-            WHERE id = ?`,
-          [title,body,id]
-    );
+      if(rows.length == 0){
+        tagId = nanoid(16)
+        await c.query(`INSERT INTO tags (id, name)
+          VALUES (?,?)`,
+          [tagId, tagName]
+        )
+      }else{
+        tagId = rows[0].id
+      }
+      await c.query(
+        `INSERT INTO note_tags (note_id, tag_id)
+        VALUES (?, ?)`,
+        [id, tagId]
+      )
+    }
+      // for(const [i, tagName] of tags.entries()){
+        
+      //   if(tagForDelete.length !== 0){
+      //           for(const tag of tagForDelete){
+      //             await c.query(
+      //               `DELETE FROM note_tags
+      //               WHERE tag_id = ? AND note_id = ?`,
+      //               [tag.id, id]
+      //             )
+      //           }   
+      //     if(rows.length == 0){
+              
+      //     }else{
+      //       tagId = nanoid(16)
+      //       await c.query(`INSERT INTO tags (id, name)
+      //       VALUES (?,?)`,
+      //       [tagId, tagName]
+      //       )
+      //       await c.query(
+      //         `INSERT INTO note_tags (note_id, tag_id)
+      //         VALUES (?, ?)`,
+      //         [id, tagId]
+      //       )
+      //     }    
+      //   }else{
+      //     if(oldTags.length > tags.length){
+      //       const tagForDelete = oldTags.slice(tags.length)
+      //         for(const tag of tagForDelete){
+      //           await c.query(
+      //             `DELETE FROM note_tags
+      //             WHERE tag_id = ? AND note_id = ?`,
+      //             [tag.id, id]
+      //           )
+      //         }
+      //     }else if(!oldTags.some(tag => tag.name === tagName)){
+      //       tagId = rows[0].id
+      //       await c.query(
+      //         `INSERT INTO note_tags(note_id,tag_id)
+      //         VALUES (?,?)`,
+      //         [id, tagId]
+      //       )
+      //     }else if(oldTags.some(tag => tag.name === tagName)){
+      //       continue;
+      //     }else{
+      //       const tagForDelete = oldTags.slice(tags.length)
+      //         for(const tag of tagForDelete){
+      //           await c.query(
+      //             `DELETE FROM note_tags
+      //             WHERE tag_id = ? AND note_id = ?`,
+      //             [tag.id, id]
+      //           )
+      //         }
+      //     }
+      //   }
+      // }
+    
     c.commit()
     return h.response({
-      status: 'success',
-      message: 'Note berhasil diedit'
-    })
+      status: 'succes',
+      message: 'Note berhasil di update'
+    }).code(201)
+
   }catch(err){
     c.rollback();
     console.log(err)
@@ -201,41 +243,6 @@ export const editNoteByIdhandler = async(request, h) => {
       message: 'Gagal mengedit Note'
     })
   }
-
-
-  // const { id } = request.params;
-
-  // const { title, tags, body } = request.payload;
-  // const updatedAt = new Date().toISOString();
-
-  // const index = notes.findIndex((note) => note.id === id);
-  // console.log(index);
-
-  // if (index !== -1){
-  //   notes[index] = {
-  //     ...notes[index],
-  //     title,
-  //     tags,
-  //     body,
-  //     updatedAt
-  //   };
-
-  //   const response = h.response({
-  //     status: 'success',
-  //     message: 'Catatan berhasil di edit',
-  //   });
-
-  //   response.code(200);
-  //   return response;
-  // }
-
-  // const response = h.response({
-  //   status: 'fail',
-  //   message: 'Gagal mengedit catatan'
-  // });
-
-  // response.code(404);
-  // return response;
 };
 
 export const deleteNoteByIdHandler = async(request, h) => {
